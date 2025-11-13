@@ -1,0 +1,21 @@
+employee_number,first_name,last_name,email,department,salary,currency,country_code,start_date
+EMP-0001,Alice,Wanjiru,alice.wanjiru@example.com,Engineering,500000,KES,KE,2022-05-10
+EMP-0002,Brian,Okonkwo,,Sales,250000,USD,NG,2022-11-01
+EMP-0003,Carol,Gichuru,carol[at]example.com,Finance,350000,KES,KE,2021-07-20
+EMP-0004,David,Toure,david.toure@example.com,Customer Success,-50000,KES,GH,2020-03-15
+EMP-0005,Eunice,Abdi,eunice.abdi@example.com,Compliance,50k,USD,KE,2019-12-01
+EMP-0006,Felix,Banda,felix.banda@example.com,Engineering,510000,AAA,UG,2022-01-31
+EMP-0007,Grace,Njoroge,grace.njoroge@example.com,People Ops,610000,KES,XX,2021-03-21
+EMP-0008,Hassan,Irungu,hassan.irungu@example.com,Support,120000,KES,KE,2026-01-15
+,Ivy,Mwangi,ivy.mwangi@example.com,Design,220000,KES,KE,2020-02-02
+EMP-0010,John,Kariuki,john.kariuki@example.com,Engineering,330000,KES,KE,15-2021-01
+EMP-999999999999999999999999999999999999999999999999999999999999,Kevin,Lado,kevin.lado@example.com,Data,900000,KES,UG,2021-01-01
+EMP-0012,Lydia,Peters,lydia.peters@example.com,XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX,800000,KES,KE,2020-09-09
+EMP-0013,,,,,,,,
+EMP-0014,Mary,Cheruiyot,mary.cheruiyot@example.com,Engineering,700000,KES,KE,2019-08-08
+EMP-0015,Noah,Radebe,NOAH.RADEBE@EXAMPLE.COM,Finance,450000,KES,ZA,2022-06-06
+EMP-0001,Olivia,Juma,olivia.juma@example.com,Product,560000,KES,KE,2020-01-20
+EMP-0017,Peter,Sankara,peter.sankara@example.com,Compliance,66.5k,KES,KE,2018-04-04
+EMP-0018,Queen,Valela,queen.valela@,Support,760000,USD,GH,2018-05-05
+EMP-0019,Ruth,Fofana,ruth.fofana@example.com,Finance,990000,KES,KE,2021-10-10
+EMP-0020,Sam,Xaba,sam.xaba@example.com,Engineering,880000,KES,KE,2030-03-03

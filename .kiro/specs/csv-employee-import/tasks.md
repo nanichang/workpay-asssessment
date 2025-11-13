@@ -7,7 +7,7 @@
   - Commit to git
   - _Requirements: 1.4, 5.2_
 
-- [-] 2. Create database migrations and models
+- [x] 2. Create database migrations and models
 - [x] 2.1 Create Employee model and migration
   - Write Employee model with fillable fields and casts
   - Create migration with proper indexes for employee_number and email uniqueness
@@ -29,15 +29,15 @@
   - Commit to git
   - _Requirements: 7.1, 7.3_
 
-- [ ]* 2.4 Write model unit tests
+- [x] 2.4 Write model unit tests
   - Create unit tests for Employee model validation and relationships
   - Write tests for ImportJob progress calculations
   - Test ImportError model error categorization
   - Commit to git
   - _Requirements: 2.1, 3.4, 7.3_
 
-- [ ] 3. Implement core validation services
-- [ ] 3.1 Create EmployeeValidator service
+- [-] 3. Implement core validation services
+- [x] 3.1 Create EmployeeValidator service
   - Write validation class with business rules based on sample data structure
   - Implement validation for required fields: employee_number, first_name, last_name, email
   - Add email format validation (must contain @ and valid domain)
@@ -48,7 +48,7 @@
   - Add department name length validation
   - _Requirements: 2.1, 2.2, 2.5_
 
-- [ ] 3.2 Create DuplicateDetector service
+- [-] 3.2 Create DuplicateDetector service
   - Write service to detect duplicates within files and against existing records
   - Implement logic to handle last occurrence processing for file duplicates
   - Add methods for cross-referencing with database records

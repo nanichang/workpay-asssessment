@@ -23,7 +23,7 @@ class ProgressTracker
     /**
      * Get cache store instance
      */
-    private function getCacheStore(): \Illuminate\Contracts\Cache\Store
+    private function getCacheStore(): \Illuminate\Contracts\Cache\Repository
     {
         $config = $this->getCacheConfig();
         return Cache::store($config['store']);

@@ -48,80 +48,80 @@
   - Add department name length validation
   - _Requirements: 2.1, 2.2, 2.5_
 
-- [-] 3.2 Create DuplicateDetector service
+- [x] 3.2 Create DuplicateDetector service
   - Write service to detect duplicates within files and against existing records
   - Implement logic to handle last occurrence processing for file duplicates
   - Add methods for cross-referencing with database records
   - Commit to git
   - _Requirements: 6.1, 6.2, 6.5_
 
-- [ ]* 3.3 Write validation service tests
+- [x] 3.3 Write validation service tests
   - Create unit tests for all validation rules with edge cases
   - Test duplicate detection logic with various scenarios
   - Write tests for validation error message formatting
   - Commit to git
   - _Requirements: 2.1, 6.1_
 
-- [ ] 4. Build file processing infrastructure
-- [ ] 4.1 Create FileProcessorService
+- [x] 4. Build file processing infrastructure
+- [x] 4.1 Create FileProcessorService
   - Write service to handle both CSV and Excel file processing
   - Implement streaming readers for memory-efficient processing
   - Add file type detection and appropriate parser selection
   - Commit to git
   - _Requirements: 5.1, 5.3, 8.2_
 
-- [ ] 4.2 Implement chunked processing logic
+- [x] 4.2 Implement chunked processing logic
   - Write chunk processing methods with configurable chunk sizes
   - Add progress tracking during chunk processing
   - Implement resumable processing from last checkpoint
   - Commit to git
   - _Requirements: 4.4, 5.1, 5.4_
 
-- [ ] 4.3 Create ProgressTracker service
+- [x] 4.3 Create ProgressTracker service
   - Write service to track and calculate import progress in real-time
   - Implement progress percentage calculation and row counting
   - Add methods for updating progress during processing
   - Commit to git
   - _Requirements: 3.1, 3.2, 3.5_
 
-- [ ]* 4.4 Write file processing tests
+- [x] 4.4 Write file processing tests
   - Create tests for CSV and Excel file reading with sample files
   - Test chunked processing with large file scenarios
   - Write tests for progress tracking accuracy
   - Commit to git
   - _Requirements: 5.1, 3.1_
 
-- [ ] 5. Implement repository and data access layer
-- [ ] 5.1 Create EmployeeRepository
+- [x] 5. Implement repository and data access layer
+- [x] 5.1 Create EmployeeRepository
   - Write repository with methods for finding employees by number and email
   - Implement idempotent createOrUpdate method for upsert operations
   - Add efficient duplicate checking methods
   - Commit to git
   - _Requirements: 4.2, 4.5, 6.4_
 
-- [ ] 5.2 Create ErrorReporter service
+- [x] 5.2 Create ErrorReporter service
   - Write service to record and retrieve import errors
   - Implement error categorization and filtering methods
   - Add error summary and statistics generation
   - Commit to git
   - _Requirements: 7.1, 7.2, 7.4_
 
-- [ ]* 5.3 Write repository tests
+- [x] 5.3 Write repository tests
   - Create tests for employee CRUD operations and upsert logic
   - Test duplicate detection and idempotency
   - Write tests for error reporting and retrieval
   - Commit to git
   - _Requirements: 4.2, 7.1_
 
-- [ ] 6. Create queue job for asynchronous processing
-- [ ] 6.1 Implement ProcessEmployeeImportJob
+- [x] 6. Create queue job for asynchronous processing
+- [x] 6.1 Implement ProcessEmployeeImportJob
   - Write queue job class with proper error handling and retry logic
   - Implement job processing using FileProcessorService
   - Add failure handling and job status updates
   - Commit to git
   - _Requirements: 1.5, 4.1, 4.3_
 
-- [ ] 6.2 Add job resumption and idempotency
+- [x] 6.2 Add job resumption and idempotency
   - Implement logic to resume processing from last checkpoint
   - Add safeguards against duplicate processing during retries
   - Write methods to handle job failures and recovery
@@ -135,22 +135,22 @@
   - Commit to git
   - _Requirements: 4.1, 4.4_
 
-- [ ] 7. Build API controllers and routes
-- [ ] 7.1 Create EmployeeImportController
+- [-] 7. Build API controllers and routes
+- [x] 7.1 Create EmployeeImportController
   - Write controller with upload, progress, and error endpoints
   - Implement file validation before processing
   - Add proper HTTP response formatting and error handling
   - Commit to git
   - _Requirements: 1.1, 1.2, 8.1_
 
-- [ ] 7.2 Implement file upload validation
+- [x] 7.2 Implement file upload validation
   - Write validation rules for file size, type, and format
   - Add CSV/Excel header validation against expected schema
   - Implement early failure with clear error messages
   - Commit to git
   - _Requirements: 8.1, 8.2, 8.5_
 
-- [ ] 7.3 Add progress and error API endpoints
+- [-] 7.3 Add progress and error API endpoints
   - Write endpoints to retrieve real-time import progress
   - Implement error listing with filtering and pagination
   - Add import summary and statistics endpoints

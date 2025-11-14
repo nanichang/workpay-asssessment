@@ -15,9 +15,9 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Employee Import API Routes
-Route::prefix('employee-imports')->group(function () {
-    Route::post('/', [EmployeeImportController::class, 'upload'])->name('employee-imports.upload');
-    Route::get('/{importId}/progress', [EmployeeImportController::class, 'getProgress'])->name('employee-imports.progress');
-    Route::get('/{importId}/errors', [EmployeeImportController::class, 'getErrors'])->name('employee-imports.errors');
-    Route::get('/{importId}/summary', [EmployeeImportController::class, 'getSummary'])->name('employee-imports.summary');
+Route::prefix('employee-import')->group(function () {
+    Route::post('/upload', [EmployeeImportController::class, 'upload'])->name('employee-import.upload');
+    Route::get('/{importId}/progress', [EmployeeImportController::class, 'getProgress'])->name('employee-import.progress');
+    Route::get('/{importId}/errors', [EmployeeImportController::class, 'getErrors'])->name('employee-import.errors');
+    Route::get('/{importId}/summary', [EmployeeImportController::class, 'getSummary'])->name('employee-import.summary');
 });

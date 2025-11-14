@@ -157,29 +157,29 @@
   - Commit to git
   - _Requirements: 3.3, 7.1, 7.5_
 
-- [-] 7.4 Write API controller tests
+- [x] 7.4 Write API controller tests
   - Create tests for file upload with valid and invalid files
   - Test progress tracking API responses
   - Write tests for error reporting endpoints
   - Commit to git
   - _Requirements: 1.1, 3.3, 7.1_
 
-- [ ] 8. Create Livewire components for real-time UI
-- [ ] 8.1 Build file upload component
+- [-] 8. Create Livewire components for real-time UI
+- [x] 8.1 Build file upload component
   - Create Livewire component for drag-and-drop file upload
   - Add real-time file validation feedback
   - Implement upload progress indication
   - Commit to git
   - _Requirements: 1.1, 8.4_
 
-- [ ] 8.2 Create import progress component
+- [x] 8.2 Create import progress component
   - Write Livewire component for real-time progress display
   - Add progress bar, statistics, and status updates
   - Implement auto-refresh for progress tracking
   - Commit to git
   - _Requirements: 3.2, 3.3, 3.5_
 
-- [ ] 8.3 Build error reporting component
+- [x] 8.3 Build error reporting component
   - Create component to display import errors with filtering
   - Add error categorization and detailed error messages
   - Implement pagination for large error lists

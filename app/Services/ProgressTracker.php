@@ -5,12 +5,47 @@ namespace App\Services;
 use App\Models\ImportJob;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
 
 class ProgressTracker
 {
-    private const CACHE_PREFIX = 'import_progress:';
-    private const CACHE_TTL = 3600; // 1 hour
+    /**
+     * Get cache configuration from config
+     */
+    private function getCacheConfig(): array
+    {
+        return config('import.cache', [
+            'store' => 'redis',
+            'ttl' => ['progress' => 3600],
+            'prefixes' => ['progress' => 'import:progress:']
+        ]);
+    }
+
+    /**
+     * Get cache store instance
+     */
+    private function getCacheStore(): \Illuminate\Contracts\Cache\Store
+    {
+        $config = $this->getCacheConfig();
+        return Cache::store($config['store']);
+    }
+
+    /**
+     * Get cache prefix for progress data
+     */
+    private function getCachePrefix(): string
+    {
+        $config = $this->getCacheConfig();
+        return $config['prefixes']['progress'];
+    }
+
+    /**
+     * Get cache TTL for progress data
+     */
+    private function getCacheTTL(): int
+    {
+        $config = $this->getCacheConfig();
+        return $config['ttl']['progress'];
+    }
 
     /**
      * Update progress for an import job
@@ -177,8 +212,18 @@ class ProgressTracker
      */
     private function cacheProgressData(string $jobId, array $progressData): void
     {
-        $cacheKey = self::CACHE_PREFIX . $jobId;
-        Cache::put($cacheKey, $progressData, self::CACHE_TTL);
+        $cacheKey = $this->getCachePrefix() . $jobId;
+        $this->getCacheStore()->put($cacheKey, $progressData, $this->getCacheTTL());
+        
+        // Also cache a lightweight version for quick status checks
+        $statusKey = $this->getCachePrefix() . 'status:' . $jobId;
+        $statusData = [
+            'status' => $progressData['status'],
+            'percentage' => $progressData['percentage'],
+            'is_completed' => $progressData['is_completed'],
+            'last_updated' => $progressData['last_updated'],
+        ];
+        $this->getCacheStore()->put($statusKey, $statusData, $this->getCacheTTL());
     }
 
     /**
@@ -189,8 +234,20 @@ class ProgressTracker
      */
     private function getCachedProgressData(string $jobId): ?array
     {
-        $cacheKey = self::CACHE_PREFIX . $jobId;
-        return Cache::get($cacheKey);
+        $cacheKey = $this->getCachePrefix() . $jobId;
+        return $this->getCacheStore()->get($cacheKey);
+    }
+
+    /**
+     * Get cached status data (lightweight)
+     *
+     * @param string $jobId
+     * @return array|null
+     */
+    public function getCachedStatus(string $jobId): ?array
+    {
+        $statusKey = $this->getCachePrefix() . 'status:' . $jobId;
+        return $this->getCacheStore()->get($statusKey);
     }
 
     /**
@@ -201,8 +258,11 @@ class ProgressTracker
      */
     public function clearProgressCache(string $jobId): void
     {
-        $cacheKey = self::CACHE_PREFIX . $jobId;
-        Cache::forget($cacheKey);
+        $cacheKey = $this->getCachePrefix() . $jobId;
+        $statusKey = $this->getCachePrefix() . 'status:' . $jobId;
+        
+        $this->getCacheStore()->forget($cacheKey);
+        $this->getCacheStore()->forget($statusKey);
     }
 
     /**

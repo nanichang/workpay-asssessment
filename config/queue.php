@@ -73,6 +73,16 @@ return [
             'after_commit' => false,
         ],
 
+        // Optimized Redis configuration for employee imports
+        'redis-imports' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => env('REDIS_IMPORTS_QUEUE', 'imports'),
+            'retry_after' => (int) env('REDIS_IMPORTS_RETRY_AFTER', 300), // 5 minutes for large files
+            'block_for' => 5, // Block for 5 seconds when waiting for jobs
+            'after_commit' => false,
+        ],
+
         'deferred' => [
             'driver' => 'deferred',
         ],

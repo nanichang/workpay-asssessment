@@ -127,6 +127,37 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        // Import-specific logging channels
+        'imports' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/imports.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => env('LOG_DAILY_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
+        'import_performance' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/import_performance.log'),
+            'level' => env('IMPORT_LOG_LEVEL_PERFORMANCE', 'debug'),
+            'days' => env('LOG_DAILY_DAYS', 7),
+            'replace_placeholders' => true,
+        ],
+
+        'import_errors' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/import_errors.log'),
+            'level' => env('IMPORT_LOG_LEVEL_VALIDATION', 'warning'),
+            'days' => env('LOG_DAILY_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        'import_stack' => [
+            'driver' => 'stack',
+            'channels' => ['imports', 'import_performance', 'import_errors'],
+            'ignore_exceptions' => false,
+        ],
+
     ],
 
 ];

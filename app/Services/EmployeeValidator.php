@@ -25,6 +25,19 @@ class EmployeeValidator
     private const MAX_DEPARTMENT_LENGTH = 100;
 
     /**
+     * Validation cache service
+     */
+    private ValidationCache $validationCache;
+
+    /**
+     * Constructor
+     */
+    public function __construct(ValidationCache $validationCache)
+    {
+        $this->validationCache = $validationCache;
+    }
+
+    /**
      * Validate employee data and return validation result
      *
      * @param array $data Employee data to validate
@@ -32,6 +45,12 @@ class EmployeeValidator
      */
     public function validate(array $data): ValidationResult
     {
+        // Check cache first for complete validation result
+        $cachedResult = $this->validationCache->getCachedValidationResult($data);
+        if ($cachedResult) {
+            return new ValidationResult($cachedResult['is_valid'], $cachedResult['errors']);
+        }
+
         $errors = [];
 
         // Validate required fields
@@ -40,8 +59,8 @@ class EmployeeValidator
 
         // Only proceed with other validations if required fields are present
         if (empty($requiredErrors)) {
-            // Validate email format
-            if (!$this->validateEmail($data['email'])) {
+            // Validate email format (with caching)
+            if (!$this->validateEmailWithCache($data['email'])) {
                 $errors[] = 'Invalid email format. Email must contain @ and a valid domain.';
             }
 
@@ -58,16 +77,16 @@ class EmployeeValidator
             }
         }
 
-        // Validate currency if present
+        // Validate currency if present (with caching)
         if (isset($data['currency']) && !empty($data['currency'])) {
-            if (!$this->validateCurrency($data['currency'])) {
+            if (!$this->validateCurrencyWithCache($data['currency'])) {
                 $errors[] = 'Invalid currency code. Valid currencies: ' . implode(', ', self::VALID_CURRENCIES);
             }
         }
 
-        // Validate country code if present
+        // Validate country code if present (with caching)
         if (isset($data['country_code']) && !empty($data['country_code'])) {
-            if (!$this->validateCountry($data['country_code'])) {
+            if (!$this->validateCountryWithCache($data['country_code'])) {
                 $errors[] = 'Invalid country code. Valid countries: ' . implode(', ', self::VALID_COUNTRIES);
             }
         }
@@ -83,7 +102,15 @@ class EmployeeValidator
             }
         }
 
-        return new ValidationResult(empty($errors), $errors);
+        $result = new ValidationResult(empty($errors), $errors);
+        
+        // Cache the validation result
+        $this->validationCache->cacheValidationResult($data, [
+            'is_valid' => $result->isValid(),
+            'errors' => $result->getErrors()
+        ]);
+
+        return $result;
     }
 
     /**
@@ -190,6 +217,63 @@ class EmployeeValidator
         }
 
         return true;
+    }
+
+    /**
+     * Validate email format with caching
+     *
+     * @param string $email
+     * @return bool
+     */
+    private function validateEmailWithCache(string $email): bool
+    {
+        $cachedResult = $this->validationCache->getCachedEmailValidation($email);
+        if ($cachedResult !== null) {
+            return $cachedResult;
+        }
+
+        $isValid = $this->validateEmail($email);
+        $this->validationCache->cacheEmailValidation($email, $isValid);
+        
+        return $isValid;
+    }
+
+    /**
+     * Validate currency code with caching
+     *
+     * @param string $currency
+     * @return bool
+     */
+    private function validateCurrencyWithCache(string $currency): bool
+    {
+        $cachedResult = $this->validationCache->getCachedCurrencyValidation($currency);
+        if ($cachedResult !== null) {
+            return $cachedResult;
+        }
+
+        $isValid = $this->validateCurrency($currency);
+        $this->validationCache->cacheCurrencyValidation($currency, $isValid);
+        
+        return $isValid;
+    }
+
+    /**
+     * Validate country code with caching
+     *
+     * @param string $country
+     * @return bool
+     */
+    private function validateCountryWithCache(string $country): bool
+    {
+        $cachedResult = $this->validationCache->getCachedCountryValidation($country);
+        if ($cachedResult !== null) {
+            return $cachedResult;
+        }
+
+        $isValid = $this->validateCountry($country);
+        $this->validationCache->cacheCountryValidation($country, $isValid);
+        
+        return $isValid;
     }
 
     /**

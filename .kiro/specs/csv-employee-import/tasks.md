@@ -128,14 +128,14 @@
   - Commit to git
   - _Requirements: 4.4, 4.5_
 
-- [ ]* 6.3 Write queue job tests
+- [x] 6.3 Write queue job tests
   - Create tests for job processing with sample files
   - Test job failure and retry scenarios
   - Write tests for resumable processing logic
   - Commit to git
   - _Requirements: 4.1, 4.4_
 
-- [-] 7. Build API controllers and routes
+- [x] 7. Build API controllers and routes
 - [x] 7.1 Create EmployeeImportController
   - Write controller with upload, progress, and error endpoints
   - Implement file validation before processing
@@ -150,14 +150,14 @@
   - Commit to git
   - _Requirements: 8.1, 8.2, 8.5_
 
-- [-] 7.3 Add progress and error API endpoints
+- [x] 7.3 Add progress and error API endpoints
   - Write endpoints to retrieve real-time import progress
   - Implement error listing with filtering and pagination
   - Add import summary and statistics endpoints
   - Commit to git
   - _Requirements: 3.3, 7.1, 7.5_
 
-- [ ]* 7.4 Write API controller tests
+- [-] 7.4 Write API controller tests
   - Create tests for file upload with valid and invalid files
   - Test progress tracking API responses
   - Write tests for error reporting endpoints

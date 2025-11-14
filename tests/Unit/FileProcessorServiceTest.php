@@ -10,6 +10,7 @@ use App\Services\DuplicateDetector;
 use App\Services\ProgressTracker;
 use App\Services\ValidationResult;
 use Tests\TestCase;
+use Tests\Traits\UsesTestData;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -18,7 +19,7 @@ use Mockery;
 
 class FileProcessorServiceTest extends TestCase
 {
-    use DatabaseTransactions;
+    use DatabaseTransactions, UsesTestData;
 
     private FileProcessorService $fileProcessor;
     private EmployeeValidator $validator;
@@ -582,20 +583,12 @@ class FileProcessorServiceTest extends TestCase
     /** @test */
     public function it_processes_real_good_employees_csv_file()
     {
-        $csvPath = base_path('good-employees.csv');
-        
-        if (!file_exists($csvPath)) {
+        if (!$this->hasGoodEmployeesCsv()) {
             $this->markTestSkipped('good-employees.csv file not found');
         }
         
-        // Count actual rows in the file
-        $handle = fopen($csvPath, 'r');
-        $totalRows = 0;
-        fgetcsv($handle); // Skip header
-        while (fgetcsv($handle) !== false) {
-            $totalRows++;
-        }
-        fclose($handle);
+        $csvPath = $this->getGoodEmployeesCsvPath();
+        $totalRows = $this->countCsvRows($csvPath);
         
         $job = ImportJob::create([
             'id' => 'test-job-real-good',
@@ -663,20 +656,12 @@ class FileProcessorServiceTest extends TestCase
     /** @test */
     public function it_processes_real_bad_employees_csv_file_with_validation_errors()
     {
-        $csvPath = base_path('bad-employees.csv');
-        
-        if (!file_exists($csvPath)) {
+        if (!$this->hasBadEmployeesCsv()) {
             $this->markTestSkipped('bad-employees.csv file not found');
         }
         
-        // Count actual rows in the file
-        $handle = fopen($csvPath, 'r');
-        $totalRows = 0;
-        fgetcsv($handle); // Skip header
-        while (fgetcsv($handle) !== false) {
-            $totalRows++;
-        }
-        fclose($handle);
+        $csvPath = $this->getBadEmployeesCsvPath();
+        $totalRows = $this->countCsvRows($csvPath);
         
         $job = ImportJob::create([
             'id' => 'test-job-real-bad',
@@ -735,11 +720,11 @@ class FileProcessorServiceTest extends TestCase
     /** @test */
     public function it_processes_excel_file_with_sample_data()
     {
-        $excelPath = base_path('Assement Data Set.xlsx');
-        
-        if (!file_exists($excelPath)) {
+        if (!$this->hasAssessmentDataExcel()) {
             $this->markTestSkipped('Assessment Data Set.xlsx file not found');
         }
+        
+        $excelPath = $this->getAssessmentDataExcelPath();
         
         // Create a job for Excel processing
         $job = ImportJob::create([

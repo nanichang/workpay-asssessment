@@ -21,5 +21,10 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        // Seed test employee data for development and testing
+        if (app()->environment(['local', 'testing'])) {
+            $this->call(TestEmployeeSeeder::class);
+        }
     }
 }

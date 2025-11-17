@@ -5,7 +5,7 @@ namespace App\Livewire;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\On;
-use Illuminate\Support\Facades\Http;
+use App\Http\Controllers\EmployeeImportController;
 
 class ImportErrors extends Component
 {
@@ -14,6 +14,7 @@ class ImportErrors extends Component
     public $importJobId;
     public $errors = [];
     public $errorSummary = [];
+    public $paginationData = [];
     public $selectedErrorType = '';
     public $searchTerm = '';
     public $perPage = 10;
@@ -65,16 +66,22 @@ class ImportErrors extends Component
                 $params['search'] = $this->searchTerm;
             }
 
-            // Load errors via API
-            $response = Http::get("/api/employee-import/{$this->importJobId}/errors", $params);
+            // Create a request with the parameters
+            $request = new \Illuminate\Http\Request($params);
             
-            if ($response->successful()) {
-                $data = $response->json();
-                $this->errors = $data['data'] ?? [];
+            // Load errors via controller
+            $controller = app(EmployeeImportController::class);
+            $response = $controller->getErrors($request, $this->importJobId);
+            
+            if ($response->getStatusCode() === 200) {
+                $responseData = $response->getData(true);
+                $data = $responseData['data'] ?? $responseData;
+                $this->errors = $data['errors'] ?? [];
                 $this->errorSummary = $data['summary'] ?? [];
+                $this->paginationData = $data['pagination'] ?? [];
                 
-                // Update pagination
-                $this->setPage($data['current_page'] ?? 1);
+                // Update pagination info
+                $this->setPage($this->paginationData['current_page'] ?? 1);
             }
         } catch (\Exception $e) {
             // Handle API errors gracefully

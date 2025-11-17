@@ -8,9 +8,12 @@
                 x-data="{ 
                     isDragging: false,
                     handleDrop(e) {
+                        console.log('Drop event triggered');
                         this.isDragging = false;
                         const files = e.dataTransfer.files;
+                        console.log('Files dropped:', files.length);
                         if (files.length > 0) {
+                            console.log('Setting file:', files[0].name);
                             @this.set('file', files[0]);
                         }
                     }
@@ -47,6 +50,7 @@
                             accept=".csv,.xlsx,.xls"
                             class="hidden"
                             id="file-upload"
+                            onchange="console.log('File input changed:', this.files[0]?.name)"
                         >
                         <label 
                             for="file-upload" 
@@ -105,6 +109,8 @@
                     </div>
                 </div>
             @endif
+
+
 
             <!-- Upload Button -->
             @if ($file && !$errorMessage)

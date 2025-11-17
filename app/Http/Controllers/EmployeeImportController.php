@@ -601,11 +601,22 @@ class EmployeeImportController extends Controller
      */
     private function createImportJob($file, string $filePath): ImportJob
     {
-        return ImportJob::create([
+        $job = ImportJob::create([
             'filename' => $file->getClientOriginalName(),
             'file_path' => $filePath,
             'status' => ImportJob::STATUS_PENDING,
         ]);
+
+        // Calculate and store file integrity metadata
+        try {
+            $integrityService = app(FileIntegrityService::class);
+            $integrityService->calculateFileIntegrity($job, $filePath);
+        } catch (\Exception $e) {
+            Log::warning("Failed to calculate file integrity for job {$job->id}: " . $e->getMessage());
+            // Continue without integrity data - not critical for job creation
+        }
+
+        return $job;
     }
 
     /**

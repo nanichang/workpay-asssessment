@@ -95,7 +95,7 @@ return [
     */
     'cache' => [
         // Cache store to use for import data
-        'store' => env('IMPORT_CACHE_STORE', 'redis'),
+        'store' => env('IMPORT_CACHE_STORE', 'database'),
         
         // Cache TTL settings (in seconds)
         'ttl' => [
@@ -133,6 +133,8 @@ return [
             'job_failed' => env('IMPORT_LOG_LEVEL_FAILED', 'error'),
             'validation_errors' => env('IMPORT_LOG_LEVEL_VALIDATION', 'warning'),
             'performance' => env('IMPORT_LOG_LEVEL_PERFORMANCE', 'debug'),
+            'resumption' => env('IMPORT_LOG_LEVEL_RESUMPTION', 'info'),
+            'integrity' => env('IMPORT_LOG_LEVEL_INTEGRITY', 'info'),
         ],
 
         // Metrics collection
@@ -145,6 +147,102 @@ return [
         'error_tracking' => [
             'enabled' => env('IMPORT_ERROR_TRACKING_ENABLED', true),
             'max_errors_per_job' => (int) env('IMPORT_MAX_ERRORS_PER_JOB', 1000),
+        ],
+
+        // Resumption monitoring
+        'resumption' => [
+            'health_check_interval' => (int) env('IMPORT_HEALTH_CHECK_INTERVAL', 3600), // 1 hour
+            'alert_threshold_score' => (int) env('IMPORT_ALERT_THRESHOLD_SCORE', 70),
+            'critical_threshold_score' => (int) env('IMPORT_CRITICAL_THRESHOLD_SCORE', 50),
+        ],
+
+        // Alerting configuration
+        'alerts' => [
+            'enabled' => env('IMPORT_ALERTS_ENABLED', true),
+            'email' => env('IMPORT_ALERTS_EMAIL', null),
+            'slack_webhook' => env('IMPORT_ALERTS_SLACK_WEBHOOK', null),
+            'channels' => [
+                'critical' => ['email', 'slack'],
+                'warning' => ['email'],
+            ],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | File Integrity Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Settings for file integrity checking and resumption safety.
+    |
+    */
+    'integrity' => [
+        // Enable file integrity checking
+        'enabled' => env('IMPORT_INTEGRITY_ENABLED', true),
+        
+        // Hash algorithm for file integrity
+        'hash_algorithm' => env('IMPORT_HASH_ALGORITHM', 'sha256'),
+        
+        // Integrity check on resumption
+        'check_on_resumption' => env('IMPORT_CHECK_ON_RESUMPTION', true),
+        
+        // Backup resumption state
+        'backup_state' => env('IMPORT_BACKUP_STATE', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Lock Management Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Settings for dynamic lock management and renewal.
+    |
+    */
+    'locks' => [
+        // Enable dynamic lock management
+        'dynamic_timeout' => env('IMPORT_DYNAMIC_LOCK_TIMEOUT', true),
+        
+        // Lock renewal settings
+        'renewal' => [
+            'enabled' => env('IMPORT_LOCK_RENEWAL_ENABLED', true),
+            'interval' => (int) env('IMPORT_LOCK_RENEWAL_INTERVAL', 300), // 5 minutes
+            'threshold' => (int) env('IMPORT_LOCK_RENEWAL_THRESHOLD', 600), // 10 minutes before expiry
+        ],
+        
+        // Timeout calculation factors
+        'timeout_factors' => [
+            'base_timeout' => (int) env('IMPORT_BASE_LOCK_TIMEOUT', 3600), // 1 hour
+            'max_timeout' => (int) env('IMPORT_MAX_LOCK_TIMEOUT', 14400), // 4 hours
+            'min_timeout' => (int) env('IMPORT_MIN_LOCK_TIMEOUT', 300), // 5 minutes
+            'size_multiplier' => (float) env('IMPORT_SIZE_MULTIPLIER', 1.5),
+            'error_multiplier' => (float) env('IMPORT_ERROR_MULTIPLIER', 1.3),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cleanup Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Settings for automatic cleanup of old import data.
+    |
+    */
+    'cleanup' => [
+        // Enable automatic cleanup
+        'enabled' => env('IMPORT_CLEANUP_ENABLED', true),
+        
+        // Retention periods (in days)
+        'retention' => [
+            'completed_jobs' => (int) env('IMPORT_RETENTION_COMPLETED', 30),
+            'failed_jobs' => (int) env('IMPORT_RETENTION_FAILED', 90),
+            'resumption_logs' => (int) env('IMPORT_RETENTION_LOGS', 30),
+            'processed_records' => (int) env('IMPORT_RETENTION_RECORDS', 7),
+        ],
+        
+        // Cleanup schedule
+        'schedule' => [
+            'frequency' => env('IMPORT_CLEANUP_FREQUENCY', 'daily'),
+            'time' => env('IMPORT_CLEANUP_TIME', '02:00'),
         ],
     ],
 
@@ -177,6 +275,29 @@ return [
             'countries' => ['KE', 'NG', 'GH', 'UG', 'ZA', 'TZ', 'RW'],
             'file_types' => ['csv', 'xlsx', 'xls'],
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Legacy Configuration Keys
+    |--------------------------------------------------------------------------
+    |
+    | These keys are used by the controller for backward compatibility.
+    |
+    */
+    'max_file_size' => 20971520, // 20MB in bytes
+    'allowed_file_types' => ['csv', 'xlsx', 'xls'],
+    'max_rows' => 50000,
+    'required_headers' => [
+        'employee_number',
+        'first_name',
+        'last_name',
+        'email',
+        'department',
+        'salary',
+        'currency',
+        'country_code',
+        'start_date'
     ],
 
 ];

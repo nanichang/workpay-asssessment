@@ -24,7 +24,6 @@ class EmployeeImportDashboard extends Component
 
     public function render()
     {
-        return view('livewire.employee-import-dashboard')
-            ->layout('layouts.app');
+        return view('livewire.employee-import-dashboard');
     }
 }

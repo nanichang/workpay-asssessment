@@ -95,7 +95,7 @@
                 </div>
 
                 <!-- Time Information -->
-                @if ($importJob->started_at)
+                @if (isset($importJob->started_at) && $importJob->started_at)
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <div class="p-4 bg-gray-50 rounded-lg">
                             <p class="text-sm font-medium text-gray-500 mb-1">Started At</p>
@@ -107,7 +107,7 @@
                                 <p class="text-sm text-blue-900">{{ $this->estimatedTime }}</p>
                             </div>
                         @endif
-                        @if ($importJob->completed_at)
+                        @if (isset($importJob->completed_at) && $importJob->completed_at)
                             <div class="p-4 bg-green-50 rounded-lg">
                                 <p class="text-sm font-medium text-green-600 mb-1">Completed At</p>
                                 <p class="text-sm text-green-900">{{ \Carbon\Carbon::parse($importJob->completed_at)->format('M j, Y g:i A') }}</p>
@@ -118,10 +118,10 @@
 
                 <!-- Completion Message -->
                 @if ($isComplete)
-                    <div class="p-4 rounded-lg {{ $importJob->status === 'completed' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200' }}">
+                    <div class="p-4 rounded-lg {{ ($importJob->status ?? '') === 'completed' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200' }}">
                         <div class="flex">
                             <div class="flex-shrink-0">
-                                @if ($importJob->status === 'completed')
+                                @if (($importJob->status ?? '') === 'completed')
                                     <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                     </svg>
@@ -132,14 +132,14 @@
                                 @endif
                             </div>
                             <div class="ml-3">
-                                <h3 class="text-sm font-medium {{ $importJob->status === 'completed' ? 'text-green-800' : 'text-red-800' }}">
-                                    Import {{ $importJob->status === 'completed' ? 'Completed Successfully' : 'Failed' }}
+                                <h3 class="text-sm font-medium {{ ($importJob->status ?? '') === 'completed' ? 'text-green-800' : 'text-red-800' }}">
+                                    Import {{ ($importJob->status ?? '') === 'completed' ? 'Completed Successfully' : 'Failed' }}
                                 </h3>
-                                <div class="mt-2 text-sm {{ $importJob->status === 'completed' ? 'text-green-700' : 'text-red-700' }}">
-                                    @if ($importJob->status === 'completed')
+                                <div class="mt-2 text-sm {{ ($importJob->status ?? '') === 'completed' ? 'text-green-700' : 'text-red-700' }}">
+                                    @if (($importJob->status ?? '') === 'completed')
                                         <p>Successfully imported {{ number_format($importJob->successful_rows ?? 0) }} employees.</p>
                                         @if (($importJob->error_rows ?? 0) > 0)
-                                            <p class="mt-1">{{ number_format($importJob->error_rows) }} rows had errors and were skipped.</p>
+                                            <p class="mt-1">{{ number_format($importJob->error_rows ?? 0) }} rows had errors and were skipped.</p>
                                         @endif
                                     @else
                                         <p>The import process encountered an error and could not be completed.</p>

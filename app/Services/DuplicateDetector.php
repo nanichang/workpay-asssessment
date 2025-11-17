@@ -3,7 +3,11 @@
 namespace App\Services;
 
 use App\Models\Employee;
+use App\Models\ImportJob;
+use App\Models\ImportProcessedRecord;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class DuplicateDetector
 {
@@ -19,16 +23,55 @@ class DuplicateDetector
     private array $fileRows = [];
 
     /**
+     * Current import job for persistent tracking
+     */
+    private ?ImportJob $currentJob = null;
+
+    /**
      * Initialize the detector with all rows from the file for duplicate detection
      *
      * @param array $allRows All rows from the CSV file
+     * @param ImportJob|null $job Current import job for persistent tracking
      * @return void
      */
-    public function initializeWithFileData(array $allRows): void
+    public function initializeWithFileData(array $allRows, ?ImportJob $job = null): void
     {
         $this->fileRows = $allRows;
-        $this->processedEmployeeNumbers = [];
-        $this->processedEmails = [];
+        $this->currentJob = $job;
+        
+        // Load previously processed records if resuming
+        if ($job && $job->last_processed_row > 0) {
+            $this->loadProcessedRecords($job);
+        } else {
+            $this->processedEmployeeNumbers = [];
+            $this->processedEmails = [];
+        }
+    }
+
+    /**
+     * Load previously processed records for resumption.
+     *
+     * @param ImportJob $job
+     * @return void
+     */
+    private function loadProcessedRecords(ImportJob $job): void
+    {
+        try {
+            $this->processedEmployeeNumbers = ImportProcessedRecord::getProcessedEmployeeNumbers($job->id);
+            $this->processedEmails = ImportProcessedRecord::getProcessedEmails($job->id);
+            
+            Log::info("Loaded {count} processed employee numbers and {emailCount} emails for job {jobId}", [
+                'count' => count($this->processedEmployeeNumbers),
+                'emailCount' => count($this->processedEmails),
+                'jobId' => $job->id,
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error("Failed to load processed records for job {$job->id}: " . $e->getMessage());
+            // Fallback to empty arrays
+            $this->processedEmployeeNumbers = [];
+            $this->processedEmails = [];
+        }
     }
 
     /**
@@ -80,12 +123,31 @@ class DuplicateDetector
      *
      * @param string $employeeNumber
      * @param string $email
+     * @param int $rowNumber
+     * @param string $status
      * @return void
      */
-    public function markAsProcessed(string $employeeNumber, string $email): void
+    public function markAsProcessed(string $employeeNumber, string $email, int $rowNumber, string $status = 'processed'): void
     {
+        // Add to in-memory tracking
         $this->processedEmployeeNumbers[] = $employeeNumber;
         $this->processedEmails[] = $email;
+        
+        // Persist to database if we have a current job
+        if ($this->currentJob) {
+            try {
+                ImportProcessedRecord::recordProcessed(
+                    $this->currentJob->id,
+                    $employeeNumber,
+                    $email,
+                    $rowNumber,
+                    $status
+                );
+            } catch (\Exception $e) {
+                Log::error("Failed to persist processed record for job {$this->currentJob->id}: " . $e->getMessage());
+                // Continue processing even if persistence fails
+            }
+        }
     }
 
     /**
@@ -97,8 +159,21 @@ class DuplicateDetector
      */
     public function wasAlreadyProcessed(string $employeeNumber, string $email): bool
     {
-        return in_array($employeeNumber, $this->processedEmployeeNumbers, true) ||
-               in_array($email, $this->processedEmails, true);
+        // Check in-memory first (faster)
+        $inMemoryCheck = in_array($employeeNumber, $this->processedEmployeeNumbers, true) ||
+                        in_array($email, $this->processedEmails, true);
+        
+        if ($inMemoryCheck) {
+            return true;
+        }
+        
+        // Check persistent storage if we have a current job
+        if ($this->currentJob) {
+            return ImportProcessedRecord::wasEmployeeNumberProcessed($this->currentJob->id, $employeeNumber) ||
+                   ImportProcessedRecord::wasEmailProcessed($this->currentJob->id, $email);
+        }
+        
+        return false;
     }
 
     /**
@@ -180,5 +255,142 @@ class DuplicateDetector
         $this->processedEmployeeNumbers = [];
         $this->processedEmails = [];
         $this->fileRows = [];
+        $this->currentJob = null;
+    }
+
+    /**
+     * Get duplicate detection statistics with caching.
+     *
+     * @return array
+     */
+    public function getDuplicateStatisticsWithCache(): array
+    {
+        if (!$this->currentJob) {
+            return $this->getDuplicateStatistics();
+        }
+
+        $cacheKey = "duplicate_stats:{$this->currentJob->id}";
+        
+        return Cache::remember($cacheKey, 300, function () {
+            return $this->getDuplicateStatistics();
+        });
+    }
+
+    /**
+     * Clear duplicate detection cache for a job.
+     *
+     * @param string $jobId
+     * @return void
+     */
+    public function clearDuplicateCache(string $jobId): void
+    {
+        Cache::forget("duplicate_stats:{$jobId}");
+    }
+
+    /**
+     * Get resumption-safe duplicate statistics.
+     *
+     * @param ImportJob $job
+     * @return array
+     */
+    public function getResumptionDuplicateStats(ImportJob $job): array
+    {
+        $processedRecords = ImportProcessedRecord::byImportJob($job->id)->get();
+        
+        return [
+            'total_processed' => $processedRecords->count(),
+            'unique_employee_numbers' => $processedRecords->pluck('employee_number')->unique()->count(),
+            'unique_emails' => $processedRecords->pluck('email')->unique()->count(),
+            'skipped_duplicates' => $processedRecords->where('status', 'skipped')->count(),
+            'processed_successfully' => $processedRecords->where('status', 'processed')->count(),
+            'processing_errors' => $processedRecords->where('status', 'error')->count(),
+        ];
+    }
+
+    /**
+     * Rebuild duplicate tracking state from persistent storage.
+     *
+     * @param ImportJob $job
+     * @return array
+     */
+    public function rebuildTrackingState(ImportJob $job): array
+    {
+        try {
+            $this->currentJob = $job;
+            $this->loadProcessedRecords($job);
+            
+            $stats = [
+                'employee_numbers_loaded' => count($this->processedEmployeeNumbers),
+                'emails_loaded' => count($this->processedEmails),
+                'last_processed_row' => $job->last_processed_row,
+            ];
+            
+            Log::info("Rebuilt duplicate tracking state for job {$job->id}", $stats);
+            
+            return $stats;
+            
+        } catch (\Exception $e) {
+            Log::error("Failed to rebuild tracking state for job {$job->id}: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Validate duplicate tracking consistency.
+     *
+     * @param ImportJob $job
+     * @return array
+     */
+    public function validateTrackingConsistency(ImportJob $job): array
+    {
+        $result = [
+            'consistent' => true,
+            'issues' => [],
+            'stats' => [],
+        ];
+
+        try {
+            $processedRecords = ImportProcessedRecord::byImportJob($job->id)->get();
+            $expectedCount = $job->processed_rows;
+            $actualCount = $processedRecords->count();
+            
+            $result['stats'] = [
+                'expected_processed_rows' => $expectedCount,
+                'actual_processed_records' => $actualCount,
+                'difference' => $actualCount - $expectedCount,
+            ];
+            
+            if ($actualCount !== $expectedCount) {
+                $result['consistent'] = false;
+                $result['issues'][] = "Processed record count mismatch: expected {$expectedCount}, found {$actualCount}";
+            }
+            
+            // Check for duplicate records in tracking table
+            $duplicateEmployeeNumbers = $processedRecords
+                ->groupBy('employee_number')
+                ->filter(fn($group) => $group->count() > 1);
+                
+            if ($duplicateEmployeeNumbers->isNotEmpty()) {
+                $result['consistent'] = false;
+                $result['issues'][] = "Found duplicate employee numbers in tracking: " . 
+                    $duplicateEmployeeNumbers->keys()->implode(', ');
+            }
+            
+            $duplicateEmails = $processedRecords
+                ->groupBy('email')
+                ->filter(fn($group) => $group->count() > 1);
+                
+            if ($duplicateEmails->isNotEmpty()) {
+                $result['consistent'] = false;
+                $result['issues'][] = "Found duplicate emails in tracking: " . 
+                    $duplicateEmails->keys()->implode(', ');
+            }
+            
+        } catch (\Exception $e) {
+            $result['consistent'] = false;
+            $result['issues'][] = "Validation failed: " . $e->getMessage();
+        }
+
+        return $result;
     }
 }

@@ -27,12 +27,16 @@ class ImportJob extends Model
     protected $fillable = [
         'filename',
         'file_path',
+        'file_size',
+        'file_hash',
+        'file_last_modified',
         'status',
         'total_rows',
         'processed_rows',
         'successful_rows',
         'error_rows',
         'last_processed_row',
+        'resumption_metadata',
         'started_at',
         'completed_at',
     ];
@@ -45,11 +49,14 @@ class ImportJob extends Model
     protected function casts(): array
     {
         return [
+            'file_size' => 'integer',
+            'file_last_modified' => 'datetime',
             'total_rows' => 'integer',
             'processed_rows' => 'integer',
             'successful_rows' => 'integer',
             'error_rows' => 'integer',
             'last_processed_row' => 'integer',
+            'resumption_metadata' => 'array',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
         ];
@@ -213,6 +220,26 @@ class ImportJob extends Model
     }
 
     /**
+     * Get the processed records for this job.
+     *
+     * @return HasMany
+     */
+    public function processedRecords(): HasMany
+    {
+        return $this->hasMany(ImportProcessedRecord::class);
+    }
+
+    /**
+     * Get the resumption logs for this job.
+     *
+     * @return HasMany
+     */
+    public function resumptionLogs(): HasMany
+    {
+        return $this->hasMany(ImportResumptionLog::class);
+    }
+
+    /**
      * Scope to filter by status.
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
@@ -240,9 +267,16 @@ class ImportJob extends Model
             'processed_rows' => $this->processed_rows,
             'successful_rows' => $this->successful_rows,
             'error_rows' => $this->error_rows,
+            'last_processed_row' => $this->last_processed_row,
             'started_at' => $this->started_at,
             'completed_at' => $this->completed_at,
             'error_count' => $this->importErrors()->count(),
+            'resumption_count' => $this->resumptionLogs()->where('event_type', ImportResumptionLog::EVENT_RESUMPTION_ATTEMPT)->count(),
+            'file_integrity' => [
+                'size' => $this->file_size,
+                'hash' => $this->file_hash,
+                'last_modified' => $this->file_last_modified,
+            ],
         ];
     }
 }

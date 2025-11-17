@@ -7,12 +7,15 @@ use App\Models\Employee;
 use App\Services\EmployeeValidator;
 use App\Services\DuplicateDetector;
 use App\Services\ProgressTracker;
+use App\Services\FileIntegrityService;
+use App\Services\ExcelStreamingService;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Reader\IReadFilter;
 use Generator;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class FileProcessorService
 {
@@ -46,21 +49,35 @@ class FileProcessorService
         try {
             $job->markAsStarted();
 
-            // Detect file type and get appropriate reader
-            $fileType = $this->detectFileType($job->file_path);
-            $reader = $this->getFileReader($job->file_path, $fileType);
+            // Initialize duplicate detector with job context
+            $this->duplicateDetector->initializeWithFileData([], $job);
 
-            // Count total rows if not already set
-            if ($job->total_rows === 0) {
-                $totalRows = $this->countTotalRows($reader, $fileType);
-                $job->update(['total_rows' => $totalRows]);
+            // Get full storage path
+            $fullPath = $this->getFullFilePath($job->file_path);
+            $fileType = $this->detectFileType($fullPath);
+            
+            // Use enhanced Excel streaming if it's an Excel file
+            if ($fileType === 'excel') {
+                $this->processExcelFileWithStreaming($job, $fullPath);
+            } else {
+                $reader = $this->getFileReader($fullPath, $fileType);
+                
+                // Count total rows if not already set
+                if ($job->total_rows === 0) {
+                    $totalRows = $this->countTotalRows($reader, $fileType);
+                    $job->update(['total_rows' => $totalRows]);
+                }
+
+                // Process file in chunks
+                $this->processFileInChunks($job, $reader, $fileType);
             }
-
-            // Process file in chunks
-            $this->processFileInChunks($job, $reader, $fileType);
 
             $job->markAsCompleted();
             $this->progressTracker->markCompleted($job);
+            
+            // Clean up integrity data for completed job
+            app(FileIntegrityService::class)->cleanupIntegrityData($job);
+            
             Log::info("Import processing completed for job {$job->id}");
 
         } catch (Exception $e) {
@@ -380,7 +397,6 @@ class FileProcessorService
             
             if ($validationResult->hasErrors()) {
                 $this->recordError($job, $rowNumber, 'validation', $validationResult->getErrorsAsString(), $cleanData);
-                $job->incrementProcessedRows(false, $rowNumber);
                 $this->progressTracker->markRowProcessed($job, false, $rowNumber);
                 return;
             }
@@ -392,7 +408,6 @@ class FileProcessorService
             // Check if already processed in current session
             if ($this->duplicateDetector->wasAlreadyProcessed($employeeNumber, $email)) {
                 $this->recordError($job, $rowNumber, 'duplicate', 'Duplicate employee_number or email already processed in this session', $cleanData);
-                $job->incrementProcessedRows(false, $rowNumber);
                 $this->progressTracker->markRowProcessed($job, false, $rowNumber);
                 return;
             }
@@ -401,7 +416,6 @@ class FileProcessorService
             $existingEmployee = $this->duplicateDetector->findExistingEmployee($employeeNumber, $email);
             if ($existingEmployee && !$this->shouldUpdateExisting($existingEmployee, $cleanData)) {
                 $this->recordError($job, $rowNumber, 'duplicate', 'Employee already exists in database', $cleanData);
-                $job->incrementProcessedRows(false, $rowNumber);
                 $this->progressTracker->markRowProcessed($job, false, $rowNumber);
                 return;
             }
@@ -410,15 +424,13 @@ class FileProcessorService
             $this->createOrUpdateEmployee($cleanData);
             
             // Mark as processed to track duplicates
-            $this->duplicateDetector->markAsProcessed($employeeNumber, $email);
+            $this->duplicateDetector->markAsProcessed($employeeNumber, $email, $rowNumber, 'processed');
             
-            $job->incrementProcessedRows(true, $rowNumber);
             $this->progressTracker->markRowProcessed($job, true, $rowNumber);
 
         } catch (Exception $e) {
             Log::error("Error processing row {$rowNumber} in job {$job->id}: " . $e->getMessage());
             $this->recordError($job, $rowNumber, 'system', $e->getMessage(), $rowData);
-            $job->incrementProcessedRows(false, $rowNumber);
             $this->progressTracker->markRowProcessed($job, false, $rowNumber);
         }
     }
@@ -578,5 +590,86 @@ class FileProcessorService
             'k' => $value * 1024,
             default => $value
         };
+    }
+
+    /**
+     * Get the full file path, handling different storage configurations.
+     *
+     * @param string $relativePath
+     * @return string
+     */
+    private function getFullFilePath(string $relativePath): string
+    {
+        // If it's already an absolute path, return as-is
+        if (str_starts_with($relativePath, '/')) {
+            return $relativePath;
+        }
+
+        // Handle Laravel storage paths
+        if (str_starts_with($relativePath, 'imports/')) {
+            return Storage::disk('local')->path($relativePath);
+        }
+
+        // Default to storage_path for relative paths
+        return storage_path('app/private/' . ltrim($relativePath, '/'));
+    }
+
+    /**
+     * Process Excel file using enhanced streaming service.
+     *
+     * @param ImportJob $job
+     * @param string $filePath
+     * @return void
+     */
+    private function processExcelFileWithStreaming(ImportJob $job, string $filePath): void
+    {
+        $streamingService = new ExcelStreamingService($this->chunkSize);
+        
+        // Count total rows if not already set
+        if ($job->total_rows === 0) {
+            $reader = IOFactory::createReaderForFile($filePath);
+            $reader->setReadDataOnly(true);
+            $spreadsheet = $reader->load($filePath);
+            $totalRows = $spreadsheet->getActiveSheet()->getHighestRow() - 1; // Subtract header row
+            $job->update(['total_rows' => $totalRows]);
+            $spreadsheet->disconnectWorksheets();
+            unset($spreadsheet);
+        }
+
+        $startRow = $job->last_processed_row;
+        $currentRow = $startRow;
+        $chunk = [];
+
+        Log::info("Starting Excel streaming processing from row {$startRow} for job {$job->id}");
+
+        foreach ($streamingService->readExcelInChunks($filePath, $startRow) as $rowData) {
+            $currentRow++;
+            
+            $chunk[] = [
+                'data' => $rowData,
+                'row_number' => $currentRow
+            ];
+
+            // Process chunk when it reaches the configured size
+            if (count($chunk) >= $this->chunkSize) {
+                $this->processChunk($chunk, $job);
+                $chunk = [];
+                
+                // Create checkpoint after each chunk for resumability
+                $this->createCheckpoint($job, $currentRow);
+                
+                // Update progress tracking
+                $this->progressTracker->updateProgress($job, $currentRow);
+            }
+        }
+
+        // Process remaining rows in the last chunk
+        if (!empty($chunk)) {
+            $this->processChunk($chunk, $job);
+            $this->createCheckpoint($job, $currentRow);
+            $this->progressTracker->updateProgress($job, $currentRow);
+        }
+
+        Log::info("Completed Excel streaming processing for job {$job->id}");
     }
 }

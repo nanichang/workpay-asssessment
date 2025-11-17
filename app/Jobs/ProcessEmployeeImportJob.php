@@ -3,8 +3,11 @@
 namespace App\Jobs;
 
 use App\Models\ImportJob;
+use App\Models\ImportResumptionLog;
 use App\Services\FileProcessorService;
 use App\Services\ProgressTracker;
+use App\Services\DynamicLockManager;
+use App\Services\FileIntegrityService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -94,10 +97,29 @@ class ProcessEmployeeImportJob implements ShouldQueue
                 // Check if job can be resumed or needs to start fresh
                 if ($this->canResumeProcessing($fileProcessor)) {
                     Log::info("Resuming import processing from row {$this->importJob->last_processed_row} for job {$this->importJob->id}");
+                    
+                    // Log successful resumption
+                    ImportResumptionLog::logResumptionSuccess(
+                        $this->importJob->id,
+                        $this->importJob->last_processed_row,
+                        [
+                            'attempt_number' => $this->attempts(),
+                            'total_rows' => $this->importJob->total_rows,
+                            'processed_rows' => $this->importJob->processed_rows,
+                        ]
+                    );
                 } else {
                     Log::info("Starting fresh import processing for job {$this->importJob->id}");
                     $this->resetJobProgress();
                 }
+
+                // Log resumption attempt
+                ImportResumptionLog::logResumptionAttempt(
+                    $this->importJob->id,
+                    $this->attempts(),
+                    $this->importJob->last_processed_row,
+                    'Processing job execution started'
+                );
 
                 // Ensure job is marked as processing
                 if (!$this->importJob->isProcessing()) {
@@ -200,10 +222,10 @@ class ProcessEmployeeImportJob implements ShouldQueue
      */
     private function acquireProcessingLock(): bool
     {
-        $lockKey = "import_processing:{$this->importJob->id}";
-        $lockTimeout = 3600; // 1 hour
-
-        return Cache::lock($lockKey, $lockTimeout)->get();
+        $lockManager = app(DynamicLockManager::class);
+        $result = $lockManager->acquireProcessingLock($this->importJob);
+        
+        return $result['acquired'];
     }
 
     /**
@@ -211,8 +233,8 @@ class ProcessEmployeeImportJob implements ShouldQueue
      */
     private function releaseProcessingLock(): void
     {
-        $lockKey = "import_processing:{$this->importJob->id}";
-        Cache::lock($lockKey)->release();
+        $lockManager = app(DynamicLockManager::class);
+        $lockManager->releaseProcessingLock($this->importJob);
     }
 
     /**
@@ -297,19 +319,35 @@ class ProcessEmployeeImportJob implements ShouldQueue
      */
     private function validateJobConsistency(): bool
     {
-        // Check if the file still exists
-        if (!file_exists($this->importJob->file_path)) {
-            Log::error("Import file not found: {$this->importJob->file_path} for job {$this->importJob->id}");
+        try {
+            $integrityService = app(FileIntegrityService::class);
+            $result = $integrityService->verifyFileIntegrity($this->importJob);
+            
+            if (!$result['valid']) {
+                Log::error("File integrity validation failed for job {$this->importJob->id}", $result['errors']);
+                
+                // Log resumption failure
+                ImportResumptionLog::logResumptionFailure(
+                    $this->importJob->id,
+                    'File integrity validation failed: ' . implode(', ', $result['errors'])
+                );
+                
+                return false;
+            }
+            
+            Log::info("File integrity validated successfully for job {$this->importJob->id}");
+            return true;
+            
+        } catch (\Exception $e) {
+            Log::error("Job consistency validation failed for job {$this->importJob->id}: " . $e->getMessage());
+            
+            ImportResumptionLog::logResumptionFailure(
+                $this->importJob->id,
+                'Job consistency validation exception: ' . $e->getMessage()
+            );
+            
             return false;
         }
-
-        // Check if the file is readable
-        if (!is_readable($this->importJob->file_path)) {
-            Log::error("Import file not readable: {$this->importJob->file_path} for job {$this->importJob->id}");
-            return false;
-        }
-
-        return true;
     }
 
     /**

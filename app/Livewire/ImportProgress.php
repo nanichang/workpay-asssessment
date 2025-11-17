@@ -5,7 +5,7 @@ namespace App\Livewire;
 use Livewire\Component;
 use Livewire\Attributes\On;
 use App\Models\ImportJob;
-use Illuminate\Support\Facades\Http;
+use App\Http\Controllers\EmployeeImportController;
 
 class ImportProgress extends Component
 {
@@ -41,21 +41,39 @@ class ImportProgress extends Component
         }
 
         try {
-            // Load progress via API
-            $response = Http::get("/api/employee-import/{$this->importJobId}/progress");
+            // Load progress directly from controller
+            $controller = app(EmployeeImportController::class);
+            $response = $controller->getProgress($this->importJobId);
             
-            if ($response->successful()) {
-                $data = $response->json();
+            if ($response->getStatusCode() === 200) {
+                $responseData = $response->getData(true);
+                \Log::info('Progress response loaded', ['response' => $responseData]);
+                
+                // Extract the actual data from the API response structure
+                $data = $responseData['data'] ?? $responseData;
                 $this->importJob = (object) $data;
-                $this->progress = $this->importJob->progress_percentage ?? 0;
-                $this->isComplete = in_array($this->importJob->status, ['completed', 'failed']);
+                $this->progress = $data['percentage'] ?? 0;
+                
+                // Safe check for status
+                $status = $this->importJob->status ?? 'unknown';
+                $this->isComplete = in_array($status, ['completed', 'failed']);
                 
                 if ($this->isComplete) {
                     $this->autoRefresh = false;
                 }
+            } else {
+                \Log::error('Progress API returned error', [
+                    'status' => $response->getStatusCode(),
+                    'data' => $response->getData(true)
+                ]);
+                $this->autoRefresh = false;
             }
         } catch (\Exception $e) {
-            // Handle API errors gracefully
+            // Handle errors gracefully
+            \Log::error('Progress loading failed', [
+                'error' => $e->getMessage(),
+                'import_id' => $this->importJobId
+            ]);
             $this->autoRefresh = false;
         }
     }
@@ -72,7 +90,7 @@ class ImportProgress extends Component
 
     public function getStatusColorProperty()
     {
-        if (!$this->importJob) {
+        if (!$this->importJob || !isset($this->importJob->status)) {
             return 'gray';
         }
 
@@ -87,7 +105,7 @@ class ImportProgress extends Component
 
     public function getStatusTextProperty()
     {
-        if (!$this->importJob) {
+        if (!$this->importJob || !isset($this->importJob->status)) {
             return 'Unknown';
         }
 

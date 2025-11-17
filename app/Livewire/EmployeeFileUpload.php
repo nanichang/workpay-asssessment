@@ -6,14 +6,14 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Validate;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Http;
+use App\Models\ImportJob;
+use App\Jobs\ProcessEmployeeImportJob;
 use Illuminate\Support\Str;
 
 class EmployeeFileUpload extends Component
 {
     use WithFileUploads;
 
-    #[Validate('required|file|mimes:csv,xlsx,xls|max:20480')] // 20MB max
     public $file;
 
     public $uploadProgress = 0;
@@ -24,6 +24,8 @@ class EmployeeFileUpload extends Component
     public $validationErrors = [];
 
     protected $listeners = ['fileSelected' => 'handleFileSelected'];
+
+
 
     public function updatedFile()
     {
@@ -94,7 +96,9 @@ class EmployeeFileUpload extends Component
 
     public function uploadFile()
     {
-        $this->validate();
+        $this->validate([
+            'file' => 'required|file|mimes:csv,xlsx,xls|max:20480'
+        ]);
         
         if ($this->errorMessage) {
             return;
@@ -104,26 +108,38 @@ class EmployeeFileUpload extends Component
         $this->uploadProgress = 0;
 
         try {
-            // Store the file temporarily
+            // Store the uploaded file
             $filePath = $this->file->store('imports', 'local');
+            \Log::info('File stored', [
+                'original_name' => $this->file->getClientOriginalName(),
+                'stored_path' => $filePath,
+                'full_path' => storage_path('app/private/' . $filePath),
+                'file_exists' => file_exists(storage_path('app/private/' . $filePath))
+            ]);
             
-            // Create import job via API using multipart form data
-            $response = Http::attach(
-                'file', file_get_contents($this->file->getRealPath()), $this->file->getClientOriginalName()
-            )->post('/api/employee-import/upload');
-
-            if ($response->successful()) {
-                $data = $response->json();
-                $this->importJobId = $data['import_job_id'] ?? $data['id'];
-                $this->uploadComplete = true;
-                $this->uploadProgress = 100;
-                
-                // Emit event to parent components
-                $this->dispatch('fileUploaded', $this->importJobId);
-            } else {
-                $errorData = $response->json();
-                $this->errorMessage = $errorData['message'] ?? 'Upload failed. Please try again.';
-            }
+            // Create import job record
+            $importJob = ImportJob::create([
+                'id' => Str::uuid(),
+                'filename' => $this->file->getClientOriginalName(),
+                'file_path' => $filePath,
+                'status' => 'pending',
+                'total_rows' => 0, // Will be updated by the job
+                'processed_rows' => 0,
+                'successful_rows' => 0,
+                'error_rows' => 0,
+                'started_at' => null,
+                'completed_at' => null,
+            ]);
+            
+            // Dispatch the processing job
+            ProcessEmployeeImportJob::dispatch($importJob);
+            
+            $this->importJobId = $importJob->id;
+            $this->uploadComplete = true;
+            $this->uploadProgress = 100;
+            
+            // Emit event to parent components
+            $this->dispatch('fileUploaded', $this->importJobId);
 
         } catch (\Exception $e) {
             $this->errorMessage = 'Upload failed: ' . $e->getMessage();

@@ -178,9 +178,34 @@
                     </table>
 
                     <!-- Pagination -->
-                    <div class="px-6 py-4 border-t border-gray-200">
-                        {{ $errors->links() }}
-                    </div>
+                    @if (!empty($paginationData) && ($paginationData['total'] ?? 0) > ($paginationData['per_page'] ?? 10))
+                        <div class="px-6 py-4 border-t border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div class="text-sm text-gray-700">
+                                    Showing {{ $paginationData['from'] ?? 1 }} to {{ $paginationData['to'] ?? count($errors) }} of {{ $paginationData['total'] ?? count($errors) }} results
+                                </div>
+                                <div class="flex space-x-2">
+                                    @if (($paginationData['current_page'] ?? 1) > 1)
+                                        <button 
+                                            wire:click="previousPage"
+                                            class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                                        >
+                                            Previous
+                                        </button>
+                                    @endif
+                                    
+                                    @if (($paginationData['current_page'] ?? 1) < ($paginationData['last_page'] ?? 1))
+                                        <button 
+                                            wire:click="nextPage"
+                                            class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                                        >
+                                            Next
+                                        </button>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    @endif
 
                 @else
                     <!-- No Errors -->
